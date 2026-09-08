@@ -1,5 +1,6 @@
 """Ensure a source checkout is reproducible and excludes local private data."""
 import subprocess
+import os
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -16,3 +17,16 @@ def test_source_handoff_includes_setup_docs_and_lockfiles():
         assert (ROOT/path).is_file(),path
     result=subprocess.run(['git','-c',f'safe.directory={ROOT.as_posix()}','check-ignore','.env.example'],capture_output=True,text=True,cwd=ROOT)
     assert result.returncode==1
+
+
+def test_github_login_resolves_git_without_path():
+    if os.name != 'nt':
+        import pytest
+        pytest.skip('Windows PowerShell login helper')
+    powershell = Path(os.environ['SystemRoot'])/'System32/WindowsPowerShell/v1.0/powershell.exe'
+    env = os.environ.copy()
+    env['PATH'] = str(powershell.parent)
+    result = subprocess.run([str(powershell), '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', str(ROOT/'scripts/github-login.ps1'), '-CheckOnly'], env=env, capture_output=True, text=True, cwd=ROOT, timeout=30)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert 'git version ' in result.stdout
+    assert 'Git executable:' in result.stdout

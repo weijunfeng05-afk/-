@@ -55,6 +55,22 @@ pnpm build
 
 ## 开发
 
+### GitHub 登录时提示找不到 git
+
+如果普通 PowerShell 提示 `git: CommandNotFoundException`，但 Codex 可以使用 Git，说明 Git 没有加入用户 PATH。在项目目录运行：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\github-login.ps1 -RepairPath -CheckOnly
+```
+
+脚本会检查现有 Git 和 Git Credential Manager，并将找到的 Git 目录追加到用户 PATH，保留原有条目。关闭并重新打开 PowerShell 后，运行 `git --version` 验证。也可以直接运行下面的脚本登录，不依赖当前终端的 PATH：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\github-login.ps1
+```
+
+在浏览器中完成 Git Credential Manager 授权。仅登录 GitHub 网页不等于完成本机 Git 授权，不需要将密码或 Token 发到聊天中。
+
 后端可直接执行 `scripts/run.py`。前端在 `frontend` 中运行 `pnpm dev`，Vite 将 `/api` 转发到本机 8000 端口。修改后端后需要重启服务；生产页面修改后需要 `pnpm build`。
 
 依赖版本通过 `requirements.lock` 和 `frontend/pnpm-lock.yaml` 固定。
