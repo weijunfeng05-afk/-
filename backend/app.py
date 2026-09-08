@@ -19,6 +19,7 @@ from .files import extract, check_file, MAX_FILE_BYTES, MAX_TEXT_CHARS
 from .storage import Store, dumps
 from .model import ConfigService, ModelAdapter
 from .worker import Worker, enqueue, parse_version
+from .rubrics import PROFILES, profile_view
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -147,6 +148,10 @@ def create_app(data_dir=None, master_key=None, worker_enabled=True, model_factor
         rows = store.all('SELECT j.*,(SELECT COUNT(*) FROM job_resumes WHERE job_id=j.id) AS resume_count, (SELECT COUNT(*) FROM analysis_tasks WHERE job_id=j.id AND status IN (\'queued\',\'running\')) AS active_count FROM jobs j ORDER BY updated_at DESC')
         return [job_view(r) for r in rows]
 
+    @app.get('/api/scoring-profiles')
+    def scoring_profiles():
+        return [profile_view(k) for k in PROFILES]
+
     @app.post('/api/jobs', status_code=201)
     def create_job(body: JobInput):
         if body.confirmed and not body.requirements.active():
@@ -159,6 +164,17 @@ def create_app(data_dir=None, master_key=None, worker_enabled=True, model_factor
     @app.get('/api/jobs/{job_id}')
     def get_job(job_id: str):
         return job_view(need_job(job_id))
+
+    @app.delete('/api/jobs/{job_id}')
+    def delete_job(job_id: str):
+        with store.connect(write=True) as db:
+            row = db.execute('SELECT id FROM jobs WHERE id=?', (job_id,)).fetchone()
+            if not row:
+                raise AppError('not_found', '岗位不存在或已删除。', 404)
+            # Cascading tasks revokes active leases, preventing late result writes.
+            # Resume records/files are independent and may be shared by other jobs.
+            db.execute('DELETE FROM jobs WHERE id=?', (job_id,))
+        return {'deleted': True}
 
     @app.patch('/api/jobs/{job_id}')
     def patch_job(job_id: str, body: JobPatch):

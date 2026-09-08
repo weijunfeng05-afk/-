@@ -93,6 +93,8 @@ class Worker:
 
     async def execute(self, task):
         payload = json.loads(task['payload'])
+        if payload.get('prompt_version') != PROMPT_VERSION or payload.get('scoring_version') != SCORING_VERSION:
+            raise AppError('rules_changed', '评分规则已更新，请重试以使用当前规则。', retryable=True)
         config = self.configs.private()
         if config['config_version'] != payload['config_version']:
             raise AppError('configuration_changed', '模型配置已改变，请按新配置重新分析。', retryable=True)
@@ -100,6 +102,8 @@ class Worker:
         if task['task_type'] == 'parse_jd':
             self.stage(task, '提取岗位要求')
             requirements = await adapter.parse_jd(payload['jd_text'])
+            # Model extraction must never change the user's selected scoring policy.
+            requirements.scoring_profile = payload['requirements'].get('scoring_profile', 'generic')
             output = {'requirements': requirements.model_dump(), 'job_version': payload['job_version']}
             with self.store.connect(write=True) as db:
                 self.finish(db, task, output)

@@ -5,8 +5,9 @@ import {sortResumes} from './types';
 import type {Resume} from './types';
 
 let requests:{path:string;body:Record<string,unknown>|null}[]=[];
+const profiles=[{id:'generic',name:'通用岗位匹配',criteria:[]},{id:'toc',name:'ToC 商业化产品运营',criteria:[{id:'growth_results',label:'用户增长、留存、转化及商业化结果',weight:30}]},{id:'internal_ai',name:'内部提效 AI 产品经理',criteria:[{id:'ai_practice',label:'AI/大模型产品理解与真实实践',weight:30}]}];
 const config={base_url:'',model:'',key_set:false,key_mask:'',config_version:0,encryption_ready:true};
-beforeEach(()=>{localStorage.clear();requests=[];vi.stubGlobal('fetch',vi.fn(async(path:string,init?:RequestInit)=>{const body=init?.body?JSON.parse(init.body as string):null;requests.push({path,body});if(path==='/api/jobs'&&init?.method==='POST')return {ok:true,json:async()=>({id:'j1',...body,version:1,created_at:1})};if(path==='/api/jobs')return {ok:true,json:async()=>[]};if(path==='/api/model-config')return {ok:true,json:async()=>config};return {ok:true,json:async()=>[]};}));});
+beforeEach(()=>{localStorage.clear();requests=[];vi.stubGlobal('fetch',vi.fn(async(path:string,init?:RequestInit)=>{const body=init?.body?JSON.parse(init.body as string):null;requests.push({path,body});if(path==='/api/scoring-profiles')return {ok:true,json:async()=>profiles};if(path==='/api/jobs'&&init?.method==='POST')return {ok:true,json:async()=>({id:'j1',...body,version:1,created_at:1})};if(path==='/api/jobs')return {ok:true,json:async()=>[]};if(path==='/api/model-config')return {ok:true,json:async()=>config};return {ok:true,json:async()=>[]};}));});
 afterEach(()=>{cleanup();vi.unstubAllGlobals();});
 
 describe('app journeys',()=>{
@@ -52,4 +53,48 @@ it('excludes provisional, stale and failed historical results from the normal ra
   const rows=[row('unknown',99,{provisional:true}),row('stale',98,{stale:true}),row('failed',97,{},'failed'),row('ok',80)];
   expect(sortResumes(rows,'全部','score_desc')[0].id).toBe('ok');
   expect(sortResumes(rows,'分析失败','score_desc').map(r=>r.id)).toEqual(['failed']);
+});
+
+it('lets a role use the legacy AI rubric and persists the choice',async()=>{
+  render(<App/>);await screen.findByText('从第一个岗位开始');
+  fireEvent.click(screen.getByText('创建第一个岗位'));
+  const select=screen.getByRole('combobox',{name:'评分标准'});
+  expect(select).toHaveValue('toc');
+  fireEvent.change(select,{target:{value:'internal_ai'}});
+  expect(screen.getByText('AI/大模型产品理解与真实实践')).toBeInTheDocument();
+  fireEvent.change(screen.getByPlaceholderText('例如：Python 后端工程师'),{target:{value:'AI 产品经理'}});
+  fireEvent.click(screen.getByText('确认并保存'));
+  await waitFor(()=>expect(requests.some(r=>(r.body?.requirements as {scoring_profile?:string})?.scoring_profile==='internal_ai')).toBe(true));
+});
+
+it('cancels job deletion, then deletes the last role and clears selection',async()=>{
+  HTMLDialogElement.prototype.showModal=function(){this.setAttribute('open','');};
+  HTMLDialogElement.prototype.close=function(){this.removeAttribute('open');};
+  let deleted=false;
+  const deletion=vi.fn();
+  const job={id:'j-delete',name:'过期岗位',created_at:1,version:1,jd_text:'JD',confirmed:true,requirements:{skills:['Python'],experience:[],other:[],conditions:[]}};
+  vi.stubGlobal('fetch',vi.fn(async(path:string,init?:RequestInit)=>{
+    if(init?.method==='DELETE'){deletion();deleted=true;return {ok:true,json:async()=>({deleted:true})};}
+    return {ok:true,json:async()=>path==='/api/jobs'?(deleted?[]:[job]):path==='/api/scoring-profiles'?profiles:config};
+  }));
+  render(<App/>);await screen.findByText('过期岗位');
+  fireEvent.click(screen.getByRole('button',{name:'删除岗位 过期岗位'}));
+  expect(screen.getByRole('dialog')).toHaveTextContent('简历原文件和其他岗位的数据会保留');
+  fireEvent.click(screen.getByRole('button',{name:'取消'}));
+  expect(deletion).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button',{name:'删除岗位 过期岗位'}));
+  fireEvent.click(screen.getByRole('button',{name:'确认删除岗位'}));
+  await screen.findByText('从第一个岗位开始');
+  expect(deletion).toHaveBeenCalledOnce();
+  expect(localStorage.getItem('resume-job')).toBe('');
+});
+
+it('retains the job and shows an error when deletion fails',async()=>{
+  const job={id:'j1',name:'保留岗位',created_at:1,version:1,requirements:{skills:[],experience:[],other:[],conditions:[]}};
+  vi.stubGlobal('fetch',vi.fn(async(path:string,init?:RequestInit)=>init?.method==='DELETE'?{ok:false,json:async()=>({message:'暂时无法删除'})}:{ok:true,json:async()=>path==='/api/jobs'?[job]:path==='/api/scoring-profiles'?profiles:config}));
+  render(<App/>);await screen.findByText('保留岗位');
+  fireEvent.click(screen.getByRole('button',{name:'删除岗位 保留岗位'}));
+  fireEvent.click(screen.getByRole('button',{name:'确认删除岗位'}));
+  expect(await screen.findByRole('alert')).toHaveTextContent('暂时无法删除');
+  expect(screen.getByText('保留岗位')).toBeInTheDocument();
 });

@@ -8,6 +8,11 @@ from fastapi.testclient import TestClient
 from backend.app import create_app
 from backend.domain import Requirements, ParsedResume, Evaluation, AppError
 
+REVIEW = {'claimed_ai_depth': '简历自述：未提供 AI 实践深度', 'verification_confidence': '中',
+          'ownership_level': '未知', 'strengths': ['有项目经验'], 'risks': [],
+          'unknowns': ['个人贡献待核验'], 'must_verify': ['核验个人负责的项目环节'],
+          'final_recommendation': '建议 HR 在面试中人工复核具体项目成果。'}
+
 
 @lru_cache(maxsize=100)
 def docx_bytes(text='Alice Chen\nPython backend engineer. Built API services for 5 years.', table=False):
@@ -55,7 +60,8 @@ class FixedAdapter:
         unknown = 'UNKNOWN' in text
         return Evaluation.model_validate({'dimensions': [{'dimension': k, 'score': None if unknown else 85, 'reason': '相关原文证据', 'evidence': [] if unknown else evidence} for k in requirements.active()],
             'conditions': [{'condition_id': c.id, 'status': 'unknown' if unknown else 'not_met' if 'NOT_MET' in text else 'met', 'reason': '根据简历判断', 'evidence': [] if unknown else evidence} for c in requirements.conditions],
-            'core_information_missing': unknown, 'summary': '依据原文核对岗位要求。'})
+            'core_information_missing': unknown, 'summary': '依据原文核对岗位要求。',
+            'review': REVIEW if requirements.scoring_profile != 'generic' else None})
 
 
 @pytest.fixture

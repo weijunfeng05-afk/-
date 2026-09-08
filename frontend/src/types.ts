@@ -1,9 +1,11 @@
 export type Condition = {id:string;text:string;kind:'must'|'bonus'};
-export type Requirements = {skills:string[];experience:string[];other:string[];conditions:Condition[]};
+export type Profile = {id:'generic'|'toc'|'internal_ai';name:string;criteria:{id:string;label:string;weight:number}[]};
+export type Requirements = {scoring_profile?:Profile['id'];skills:string[];experience:string[];other:string[];conditions:Condition[]};
+export type Review = {claimed_ai_depth:string;verification_confidence:string;ownership_level:string;strengths:string[];risks:string[];unknowns:string[];must_verify:string[];final_recommendation:string};
 export type Job = {id:string;name:string;jd_text:string;requirements:Requirements;confirmed:boolean;version:number;created_at:number;resume_count?:number;active_count?:number};
 export type Task = {id:string;task_type:string;job_id:string;resume_id:string|null;status:string;stage:string;attempt:number;error:{message:string}|null;output:{requirements?:Requirements;job_version?:number;match_id?:string}|null};
 export type Evidence = {text_block_id:string;quote:string};
-export type Match = {id:string;resume_id:string;total_score:number|null;category:string;provisional:boolean;stale:boolean;summary:string;dimensions:{dimension:string;score:number|null;reason:string;evidence:Evidence[]}[];conditions:{condition_id:string;status:string;reason:string;evidence:Evidence[]}[];weights:Record<string,number>;hard_counts:Record<string,number>;job_version:number;model:string;created_at:number;input_snapshot:{requirements:Requirements};resume?:ResumeDetail};
+export type Match = {id:string;resume_id:string;total_score:number|null;category:string;provisional:boolean;stale:boolean;summary:string;dimensions:{dimension:string;score:number|null;reason:string;evidence:Evidence[]}[];conditions:{condition_id:string;status:string;reason:string;evidence:Evidence[]}[];weights:Record<string,number>;hard_counts:Record<string,number>;job_version:number;model:string;created_at:number;input_snapshot:{requirements:Requirements};resume?:ResumeDetail;scoring_profile?:Profile;review?:Review|null};
 export type Resume = {id:string;filename:string;name:string|null;created_at:number;task:Task|null;match:Match|null};
 export type ResumeDetail = {id:string;filename:string;name:string|null;text_blocks:{id:string;location:string;text:string}[]|null;parsed_json:Record<string,unknown>|null};
 export type ModelConfig = {base_url:string;model:string;key_set:boolean;key_mask:string;config_version:number;encryption_ready:boolean};
