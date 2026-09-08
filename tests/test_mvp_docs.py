@@ -1,11 +1,13 @@
 """Document regression checks: requirements coverage and template preservation."""
 import unittest
+import hashlib
+import json
 from pathlib import Path
 from zipfile import ZipFile
 from lxml import etree as E
 
 ROOT=Path(__file__).resolve().parents[1]
-REF=Path('C:/Users/admin/.codex/plugins/cache/openai-curated-remote/openai-templates/0.1.1/skills/artifact-template-system-design/assets/reference.docx')
+BASELINE=json.loads((ROOT/'docs'/'template_baseline.json').read_text(encoding='utf-8'))
 NS={'w':'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}
 
 class DocumentTests(unittest.TestCase):
@@ -28,17 +30,15 @@ class DocumentTests(unittest.TestCase):
                         self.assertIn(token,text)
 
     def test_template_parts_and_geometry(self):
-        with ZipFile(REF) as ref:
-            source=E.fromstring(ref.read('word/document.xml'))
-            for path in (ROOT/'docs').glob('*.docx'):
-                with self.subTest(path=path.name),ZipFile(path) as out:
-                    self.assertEqual(set(ref.namelist()),set(out.namelist()))
-                    for name in ref.namelist():
-                        if name in ['word/document.xml','docProps/core.xml'] or name.startswith('word/footer'):
-                            continue
-                        self.assertEqual(ref.read(name),out.read(name),name)
-                    target=E.fromstring(out.read('word/document.xml'))
-                    for attr in ['pgSz','pgMar','titlePg','headerReference','footerReference']:
-                        self.assertEqual([dict(e.attrib) for e in source.xpath('//w:sectPr/w:'+attr,namespaces=NS)], [dict(e.attrib) for e in target.xpath('//w:sectPr/w:'+attr,namespaces=NS)])
+        for path in (ROOT/'docs').glob('*.docx'):
+            with self.subTest(path=path.name),ZipFile(path) as out:
+                self.assertEqual(set(BASELINE['parts']),set(out.namelist()))
+                for name, digest in BASELINE['parts'].items():
+                    if name in ['word/document.xml','docProps/core.xml'] or name.startswith('word/footer'):
+                        continue
+                    self.assertEqual(digest,hashlib.sha256(out.read(name)).hexdigest(),name)
+                target=E.fromstring(out.read('word/document.xml'))
+                for attr, expected in BASELINE['geometry'].items():
+                    self.assertEqual(expected,[dict(e.attrib) for e in target.xpath('//w:sectPr/w:'+attr,namespaces=NS)])
 
 if __name__=='__main__': unittest.main()

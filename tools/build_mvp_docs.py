@@ -4,13 +4,14 @@ from pathlib import Path
 from zipfile import ZipFile, ZIP_DEFLATED
 import hashlib
 import json
+import os
 from lxml import etree as E
 from docx import Document
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 
 ROOT = Path(__file__).resolve().parents[1]
-REF = Path('C:/Users/admin/.codex/plugins/cache/openai-curated-remote/openai-templates/0.1.1/skills/artifact-template-system-design/assets/reference.docx')
+REF = Path(os.environ.get('MVP_TEMPLATE_PATH', ROOT / 'docs' / 'templates' / 'reference.docx'))
 OUT = ROOT / 'docs'
 QA = ROOT / '.qa'
 NS = {'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}
@@ -305,6 +306,8 @@ def technical():
     return d.save()
 
 if __name__=='__main__':
+    if not REF.is_file():
+        raise SystemExit('Set MVP_TEMPLATE_PATH to the original System Design reference.docx before regenerating documents.')
     OUT.mkdir(exist_ok=True); QA.mkdir(exist_ok=True)
     results=[product(),technical()]
     with ZipFile(REF) as z:
