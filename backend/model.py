@@ -3,10 +3,11 @@ import asyncio
 import json
 import os
 from urllib.parse import urlsplit
+from typing import Literal
 import httpx
 from cryptography.fernet import Fernet, InvalidToken
-from pydantic import ValidationError
-from .domain import AppError, StrictModel, Requirements, ParsedResume, Evaluation
+from pydantic import ValidationError, create_model
+from .domain import AppError, StrictModel, Requirements, ParsedResume, Evaluation, normalized
 from .storage import dumps
 from .rubrics import profile_view
 
@@ -143,15 +144,30 @@ class ModelAdapter:
                 except httpx.HTTPError:
                     raise AppError('model_connection', '模型连接异常，请检查接口配置。', 502, True) from None
 
-    async def parse_jd(self, text):
-        return await self.request('从 JD 提取岗位要求；明确的必须条件放入 conditions，生成唯一 id，kind=must；不要补充原文不存在的条件。', {'jd_text': text}, Requirements)
+    async def parse_jd(self, text, scoring_profile='generic'):
+        profile = profile_view(scoring_profile)
+        instruction = ('从 JD 提取技能、经历和其他要求；' if scoring_profile == 'generic' else
+                       '按照给定评分模板把 JD 中明确出现的要求映射到对应 rubric_requirements 维度；每一项逐字引用 JD 原文片段，不得改写；只能使用模板维度，不能新增维度、改动权重或脑补要求；五个维度必须全部返回，没有原文依据的维度返回空数组；skills、experience、other 返回空数组；')
+        instruction += '明确的必须条件放入 conditions，生成唯一 id，kind=must；加分或优先项可放入 conditions，kind=bonus；不要把同一条要求重复放入多个维度。'
+        schema = create_model('SelectedJobRequirements', __base__=Requirements,
+                              scoring_profile=(Literal[scoring_profile], ...))
+        result = await self.request(instruction, {'jd_text': text, 'scoring_profile': scoring_profile, 'rubric': profile}, schema)
+        if scoring_profile != 'generic':
+            if set(result.rubric_requirements) != set(result.weights()):
+                raise AppError('invalid_output', 'JD 拆解未完整返回模板的五个维度，请重试。', retryable=True)
+            for items in result.rubric_requirements.values():
+                if any(normalized(item) not in normalized(text) for item in items):
+                    raise AppError('invalid_evidence', 'JD 拆解含有原文中不存在的要求，请重试。', retryable=True)
+            if result.skills or result.experience or result.other:
+                raise AppError('invalid_output', '专用岗位要求应归入五维模板，请重试。', retryable=True)
+        return result
 
     async def parse_resume(self, blocks):
         return await self.request('抽取简历事实和姓名；姓名未提供时为空字符串；每项技能、经历、项目、教育附原文证据。', {'text_blocks': blocks}, ParsedResume)
 
     async def evaluate_match(self, requirements, parsed, blocks):
-        return await self.request('逐项评估岗位匹配。只输出 active_dimensions 内的全部维度和全部条件 ID；有要求但无信息时分数为 null。\n' + REVIEW_INSTRUCTIONS,
-                                  {'requirements': requirements.model_dump(), 'rubric': profile_view(requirements.scoring_profile), 'active_dimensions': requirements.active(), 'resume': parsed, 'text_blocks': blocks}, Evaluation)
+        return await self.request('逐项评估岗位匹配。模板定义评分标准，rubric_requirements 提供该维度经用户确认的 JD 观察点；空数组表示 JD 未补充要求，仍按模板维度评估，不能当作候选人缺失证据。只输出 active_dimensions 内的全部维度和全部条件 ID；简历无证据时分数为 null。\n' + REVIEW_INSTRUCTIONS,
+                                  {'requirements': requirements.model_dump(), 'rubric': profile_view(requirements.scoring_profile), 'rubric_requirements': requirements.rubric_requirements, 'active_dimensions': requirements.active(), 'resume': parsed, 'text_blocks': blocks}, Evaluation)
 
     async def test_connection(self):
         value = await self.request('连接测试，请返回 {"ok": true}', {}, Probe)

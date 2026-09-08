@@ -1,0 +1,26 @@
+# Creating this service incurs Render plan and disk charges. Review before applying.
+services:
+  - type: web
+    name: resume-assistant-api
+    runtime: python
+    plan: starter
+    buildCommand: pip install -r requirements.lock
+    startCommand: python scripts/run_cloud.py
+    healthCheckPath: /api/health
+    disk:
+      name: resume-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.10
+      - key: RESUME_CLOUD
+        value: "1"
+      - key: RESUME_DATA_DIR
+        value: /var/data
+      - key: RESUME_FRONTEND_ORIGIN
+        sync: false
+      - key: RESUME_MASTER_KEY
+        sync: false
+      - key: RESUME_ACCESS_TOKEN
+        generateValue: true

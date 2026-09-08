@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from .rubrics import PROFILES, profile_view
 
 DIMENSIONS = {'skills': 40, 'experience': 35, 'other': 15, 'bonus': 10}
-PROMPT_VERSION = '2'
+PROMPT_VERSION = '3'
 SCORING_VERSION = '2'
 PARSER_VERSION = '1'
 
@@ -29,6 +29,7 @@ class Condition(StrictModel):
 
 class Requirements(StrictModel):
     scoring_profile: Literal['generic', 'toc', 'internal_ai'] = 'generic'
+    rubric_requirements: dict[str, list[str]] = Field(default_factory=dict, max_length=20)
     skills: list[str] = Field(default_factory=list, max_length=50)
     experience: list[str] = Field(default_factory=list, max_length=50)
     other: list[str] = Field(default_factory=list, max_length=50)
@@ -42,6 +43,11 @@ class Requirements(StrictModel):
         for key in ('skills', 'experience', 'other'):
             if any(not s.strip() or len(s) > 1000 for s in getattr(self, key)):
                 raise ValueError('岗位要求不能为空或超过 1000 字')
+        allowed = set(self.weights()) if self.scoring_profile != 'generic' else set()
+        if any(key not in allowed for key in self.rubric_requirements):
+            raise ValueError('岗位评分维度映射不符合当前评分模板')
+        if any(len(items) > 50 or any(not item.strip() or len(item) > 1000 for item in items) for items in self.rubric_requirements.values()):
+            raise ValueError('岗位评分维度要求不能为空或超过 1000 字')
         return self
 
     def active(self):

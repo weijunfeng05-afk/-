@@ -101,9 +101,10 @@ class Worker:
         adapter = self.factory(config)
         if task['task_type'] == 'parse_jd':
             self.stage(task, '提取岗位要求')
-            requirements = await adapter.parse_jd(payload['jd_text'])
+            requirements = await adapter.parse_jd(payload['jd_text'], payload['requirements'].get('scoring_profile', 'generic'))
             # Model extraction must never change the user's selected scoring policy.
-            requirements.scoring_profile = payload['requirements'].get('scoring_profile', 'generic')
+            requirements = Requirements.model_validate({**requirements.model_dump(),
+                'scoring_profile': payload['requirements'].get('scoring_profile', 'generic')})
             output = {'requirements': requirements.model_dump(), 'job_version': payload['job_version']}
             with self.store.connect(write=True) as db:
                 self.finish(db, task, output)

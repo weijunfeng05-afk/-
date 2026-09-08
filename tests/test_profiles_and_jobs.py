@@ -63,6 +63,7 @@ def test_model_receives_rubric_and_review_policy():
         async def request(self, operation,payload,schema):
             assert payload['rubric']['criteria'][0]=={'id':'ai_practice','label':'AI/大模型产品理解与真实实践','weight':30}
             assert payload['active_dimensions']==list(Requirements(scoring_profile='internal_ai').weights())
+            assert payload['rubric_requirements']=={}
             assert '简历自述' in operation and 'ownership' in operation
             return evaluation('internal_ai')
     asyncio.run(Capture({}).evaluate_match(Requirements(scoring_profile='internal_ai'),{},BLOCKS))
@@ -91,6 +92,13 @@ def test_jd_parse_preserves_profile_and_old_jobs_remain_generic(client,app,ready
     assert client.get('/api/tasks/'+tid).json()['output']['requirements']['scoring_profile']=='toc'
     assert Requirements.model_validate({'skills':['Python']}).scoring_profile=='generic'
     assert len(client.get('/api/scoring-profiles').json())==3
+
+
+def test_specialized_jd_requirements_are_validated_to_template_dimensions():
+    req = Requirements(scoring_profile='toc', rubric_requirements={'growth_results': ['负责用户增长']})
+    assert req.rubric_requirements['growth_results'] == ['负责用户增长']
+    with pytest.raises(ValidationError):
+        Requirements(scoring_profile='toc', rubric_requirements={'invented_dimension': ['不应出现']})
 
 
 def test_deleting_job_preserves_shared_resumes_and_other_results(client,app,ready):

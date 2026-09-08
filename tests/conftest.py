@@ -39,7 +39,7 @@ class FixedAdapter:
     async def test_connection(self):
         return {'ok': True, 'message': '连接成功'}
 
-    async def parse_jd(self, text):
+    async def parse_jd(self, text, scoring_profile='generic'):
         return Requirements(skills=['Python'], experience=['Backend services'])
 
     async def parse_resume(self, blocks):

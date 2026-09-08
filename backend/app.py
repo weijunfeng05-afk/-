@@ -2,6 +2,7 @@ import asyncio
 import hashlib
 import json
 import os
+import secrets
 import time
 import uuid
 from contextlib import asynccontextmanager, suppress
@@ -12,6 +13,7 @@ from fastapi import FastAPI, UploadFile, File, Form, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.cors import CORSMiddleware
 from starlette.exceptions import HTTPException
 from pydantic import Field
 from .domain import AppError, StrictModel, Requirements
@@ -59,6 +61,13 @@ def task_view(row):
 
 
 def create_app(data_dir=None, master_key=None, worker_enabled=True, model_factory=ModelAdapter):
+    cloud = os.environ.get('RESUME_CLOUD') == '1'
+    access_token = os.environ.get('RESUME_ACCESS_TOKEN', '')
+    cloud_origin = os.environ.get('RESUME_FRONTEND_ORIGIN', '').rstrip('/')
+    cloud_host = os.environ.get('RENDER_EXTERNAL_HOSTNAME') or os.environ.get('RESUME_ALLOWED_HOST', '')
+    if cloud and (len(access_token) < 32 or not cloud_origin.startswith('https://') or not cloud_host or
+                  not os.environ.get('RESUME_DATA_DIR') or not (master_key or os.environ.get('RESUME_MASTER_KEY'))):
+        raise RuntimeError('云端启动需要访问密钥（至少32字符）、HTTPS前端地址、后端主机、持久化目录和加密主密钥。')
     store = Store(data_dir or os.environ.get('RESUME_DATA_DIR', ROOT / 'data'))
     configs = ConfigService(store, master_key)
     worker = Worker(store, configs, model_factory)
@@ -84,13 +93,21 @@ def create_app(data_dir=None, master_key=None, worker_enabled=True, model_factor
     async def local_guard(request, call_next):
         request.state.request_id = uuid.uuid4().hex
         allowed = ('127.0.0.1', 'localhost', '::1') + (('testserver',) if not worker_enabled else ())
+        if cloud:
+            allowed += (cloud_host,)
         if request.url.hostname not in allowed:
             return error_response(request, 'invalid_host', '仅允许本机访问。', 403)
         origin = request.headers.get('origin')
-        if origin and origin != str(request.base_url).rstrip('/'):
+        if cloud and origin and origin != cloud_origin:
+            return error_response(request, 'invalid_origin', '请求来源不受信任。', 403)
+        if not cloud and origin and origin != str(request.base_url).rstrip('/'):
             dev_origin = urlsplit(origin)
             if dev_origin.hostname not in ('127.0.0.1', 'localhost') or dev_origin.port != 5173 or dev_origin.scheme != 'http':
                 return error_response(request, 'invalid_origin', '请求来源不受信任。', 403)
+        if cloud and request.url.path != '/api/health':
+            supplied = request.headers.get('authorization', '')
+            if not secrets.compare_digest(supplied.encode(), ('Bearer ' + access_token).encode()):
+                return error_response(request, 'unauthorized', '请填写正确的工作空间访问密钥。', 401)
         response = await call_next(request)
         response.headers['X-Content-Type-Options'] = 'nosniff'
         response.headers['Referrer-Policy'] = 'no-referrer'
@@ -98,6 +115,11 @@ def create_app(data_dir=None, master_key=None, worker_enabled=True, model_factor
         if request.url.path.startswith('/api'):
             response.headers['Cache-Control'] = 'no-store'
         return response
+
+    if cloud:
+        app.add_middleware(CORSMiddleware, allow_origins=[cloud_origin],
+                           allow_methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+                           allow_headers=['Authorization', 'Content-Type'])
 
     @app.exception_handler(AppError)
     async def app_error(request, exc):
@@ -272,6 +294,14 @@ def create_app(data_dir=None, master_key=None, worker_enabled=True, model_factor
         if not Path(row['file_path']).is_file():
             raise AppError('file_missing', '本地原文件不存在。', 404)
         return FileResponse(row['file_path'], filename=row['filename'], content_disposition_type='attachment')
+
+    @app.get('/api/resumes/{resume_id}/history')
+    def resume_history(resume_id: str, job_id: str, limit: int = Query(100, ge=1, le=200)):
+        need_resume(resume_id)
+        job = need_job(job_id)
+        return [result_view(row, job) for row in store.all(
+            'SELECT * FROM match_results WHERE resume_id=? AND job_id=? ORDER BY created_at DESC LIMIT ?',
+            (resume_id, job_id, limit))]
 
     @app.delete('/api/resumes/{resume_id}')
     def delete_resume(resume_id: str):

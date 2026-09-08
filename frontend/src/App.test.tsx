@@ -14,6 +14,7 @@ describe('app journeys',()=>{
   it('shows an honest empty state and permits manual confirmed requirements',async()=>{
     render(<App/>);await screen.findByText('从第一个岗位开始');
     fireEvent.click(screen.getByText('创建第一个岗位'));
+    fireEvent.change(screen.getByRole('combobox',{name:'评分标准'}),{target:{value:'generic'}});
     fireEvent.change(screen.getByPlaceholderText('例如：Python 后端工程师'),{target:{value:'后端工程师'}});
     fireEvent.change(screen.getByPlaceholderText('每行一项，例如：熟练使用 Python'),{target:{value:'Python\n\nSQL\n'}});
     fireEvent.click(screen.getByText('添加条件'));
@@ -61,10 +62,12 @@ it('lets a role use the legacy AI rubric and persists the choice',async()=>{
   const select=screen.getByRole('combobox',{name:'评分标准'});
   expect(select).toHaveValue('toc');
   fireEvent.change(select,{target:{value:'internal_ai'}});
-  expect(screen.getByText('AI/大模型产品理解与真实实践')).toBeInTheDocument();
+  const dimension=screen.getByRole('textbox',{name:/AI\/大模型产品理解与真实实践/});
+  fireEvent.change(dimension,{target:{value:' 搭建 AI 原型\n\n '}});
   fireEvent.change(screen.getByPlaceholderText('例如：Python 后端工程师'),{target:{value:'AI 产品经理'}});
   fireEvent.click(screen.getByText('确认并保存'));
   await waitFor(()=>expect(requests.some(r=>(r.body?.requirements as {scoring_profile?:string})?.scoring_profile==='internal_ai')).toBe(true));
+  expect(requests.find(r=>r.body?.confirmed===true)?.body?.requirements).toMatchObject({rubric_requirements:{ai_practice:['搭建 AI 原型']}});
 });
 
 it('cancels job deletion, then deletes the last role and clears selection',async()=>{

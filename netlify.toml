@@ -1,0 +1,13 @@
+[build]
+  base = "frontend"
+  command = "node scripts/validate-cloud.mjs && pnpm build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+  PNPM_VERSION = "11.0.0"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
