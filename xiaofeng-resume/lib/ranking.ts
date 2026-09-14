@@ -1,0 +1,1 @@
+export function filterRows(rows:any[],filter:string){return rows.filter(r=>filter==='全部'||filter==='85+'&&r.score>=85||filter==='70+'&&r.score>=70||filter==='待判断'&&r.score>=55&&r.score<70||filter==='低优先级'&&r.score!==null&&r.score<55||filter==='Must-have 异常'&&r.result?.must_have.some((m:any)=>m.status!=='met')||filter==='未处理'&&r.status!=='completed')}

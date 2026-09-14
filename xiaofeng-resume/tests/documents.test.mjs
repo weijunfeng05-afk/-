@@ -1,0 +1,10 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import JSZip from 'jszip';
+import {build} from 'esbuild';
+await build({entryPoints:['lib/documents.ts'],bundle:true,platform:'node',format:'esm',packages:'external',outfile:'work/test-documents.mjs'});
+const {parseDocument,checkFile}=await import('../work/test-documents.mjs');
+async function docx(text){const z=new JSZip();z.file('[Content_Types].xml','<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>');z.file('_rels/.rels','<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');z.file('word/document.xml',`<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>${text}</w:t></w:r></w:p></w:body></w:document>`);return z.generateAsync({type:'arraybuffer'})}
+test('DOCX提取中文事实且保留原句',async()=>{const text='候选人负责企业知识库 Agent 产品设计，完成需求调研、工作流设计和产品上线。';assert.equal(await parseDocument(await docx(text),'resume.docx'),text)});
+test('空文档或伪装格式不会进入评分',async()=>{await assert.rejects(parseDocument(await docx(''),'empty.docx'),/足够文字/);await assert.rejects(parseDocument(new TextEncoder().encode('not a pdf').buffer,'resume.pdf'),/解析失败/);assert.throws(()=>checkFile(new File(['x'],'resume.txt')),/仅支持/)});
+test('超大DOCX解压内容在解压之前被拒绝',async()=>{const data=new Uint8Array(await docx('Synthetic technical fixture with sufficient document text.'));const v=new DataView(data.buffer);for(let i=0;i+46<data.length;i++){if(v.getUint32(i,true)===0x02014b50){v.setUint32(i+24,30*1024*1024,true);break;}}await assert.rejects(parseDocument(data.buffer,'large.docx'),/解压内容过大/)});

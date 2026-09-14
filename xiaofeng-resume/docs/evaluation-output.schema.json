@@ -1,0 +1,277 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "evaluation-output",
+  "type": "object",
+  "properties": {
+    "candidate_profile": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "education": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "school": {
+                "type": "string",
+                "maxLength": 300
+              },
+              "degree": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "major": {
+                "type": "string",
+                "maxLength": 100
+              }
+            },
+            "required": [
+              "school",
+              "degree",
+              "major"
+            ]
+          },
+          "maxItems": 10
+        },
+        "experience": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "company": {
+                "type": "string",
+                "maxLength": 300
+              },
+              "role": {
+                "type": "string",
+                "maxLength": 300
+              },
+              "start": {
+                "type": "string",
+                "maxLength": 30
+              },
+              "end": {
+                "type": "string",
+                "maxLength": 30
+              },
+              "responsibilities": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300
+                },
+                "maxItems": 10
+              }
+            },
+            "required": [
+              "company",
+              "role",
+              "start",
+              "end",
+              "responsibilities"
+            ]
+          },
+          "maxItems": 20
+        },
+        "projects": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "maxLength": 300
+              },
+              "background": {
+                "type": "string",
+                "maxLength": 500
+              },
+              "role": {
+                "type": "string",
+                "maxLength": 300
+              },
+              "methods": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300
+                },
+                "maxItems": 10
+              },
+              "results": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300
+                },
+                "maxItems": 10
+              }
+            },
+            "required": [
+              "name",
+              "background",
+              "role",
+              "methods",
+              "results"
+            ]
+          },
+          "maxItems": 20
+        },
+        "skills": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "maxItems": 50
+        },
+        "achievements": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "maxItems": 20
+        }
+      },
+      "required": [
+        "name",
+        "education",
+        "experience",
+        "projects",
+        "skills",
+        "achievements"
+      ],
+      "additionalProperties": false
+    },
+    "dimension_scores": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "score": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            },
+            "maxItems": 3
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          }
+        },
+        "required": [
+          "id",
+          "score",
+          "evidence",
+          "reason"
+        ]
+      },
+      "minItems": 1,
+      "maxItems": 12
+    },
+    "strengths": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300
+      },
+      "maxItems": 3
+    },
+    "risks": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300
+      },
+      "maxItems": 3
+    },
+    "must_have": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "requirement": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "met",
+              "unmet",
+              "unknown"
+            ]
+          },
+          "evidence": {
+            "type": "string",
+            "maxLength": 300
+          }
+        },
+        "required": [
+          "requirement",
+          "status",
+          "evidence"
+        ]
+      },
+      "maxItems": 15
+    },
+    "unknowns": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300
+      },
+      "maxItems": 15,
+      "default": []
+    },
+    "interview_questions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300
+      },
+      "maxItems": 15,
+      "default": []
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    }
+  },
+  "required": [
+    "candidate_profile",
+    "dimension_scores",
+    "strengths",
+    "risks",
+    "must_have",
+    "confidence"
+  ],
+  "additionalProperties": false
+}
