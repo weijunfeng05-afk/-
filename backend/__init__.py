@@ -1,1 +1,0 @@
-"""Local resume screening assistant."""

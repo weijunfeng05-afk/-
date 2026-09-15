@@ -1,0 +1,68 @@
+Tracked modifications and archived legacy source (D means moved into ignored local backup):
+M	.env.example
+M	README.md
+D	backend/__init__.py
+D	backend/app.py
+D	backend/domain.py
+D	backend/files.py
+D	backend/model.py
+D	backend/rubrics.py
+D	backend/storage.py
+D	backend/worker.py
+D	docs/Netlify与Render部署.md
+D	docs/artifact.md
+D	docs/template_baseline.json
+D	docs/简历筛选助手_MVP_产品方案_V1.0.docx
+D	docs/简历筛选助手_MVP_技术方案_V1.0.docx
+D	docs/评分标准迁移说明.md
+D	frontend/index.html
+D	frontend/package.json
+D	frontend/pnpm-lock.yaml
+D	frontend/pnpm-workspace.yaml
+D	frontend/scripts/validate-cloud.mjs
+D	frontend/src/App.test.tsx
+D	frontend/src/App.tsx
+D	frontend/src/CloudAccess.tsx
+D	frontend/src/api.ts
+D	frontend/src/cloud.test.tsx
+D	frontend/src/main.tsx
+D	frontend/src/style.css
+D	frontend/src/test-setup.ts
+D	frontend/src/types.ts
+D	frontend/src/vite-env.d.ts
+D	frontend/tsconfig.json
+D	frontend/vite.config.ts
+M	netlify.toml
+D	pytest.ini
+D	render.yaml
+D	requirements.lock
+D	scripts/github-login.ps1
+D	scripts/run.py
+D	scripts/run_cloud.py
+D	scripts/setup.ps1
+D	scripts/start.ps1
+D	scripts/verify.ps1
+D	tests/conftest.py
+D	tests/test_cloud.py
+D	tests/test_files.py
+D	tests/test_integration.py
+D	tests/test_model.py
+D	tests/test_mvp_docs.py
+D	tests/test_profiles_and_jobs.py
+D	tests/test_repository.py
+D	tests/test_rules.py
+D	tests/test_template_persistence.py
+D	tools/build_mvp_docs.py
+D	tools/verify_mvp_render.py
+M	xiaofeng-resume/README.md
+M	xiaofeng-resume/docs/NETLIFY-SUPABASE.md
+M	xiaofeng-resume/package.json
+
+New source files:
+xiaofeng-resume/docs/cloud-change-list.txt
+xiaofeng-resume/docs/cloud-execution-2026-09-15.md
+xiaofeng-resume/scripts/cloud-preflight.mjs
+xiaofeng-resume/scripts/deployment-env.mjs
+xiaofeng-resume/scripts/next-local.mjs
+xiaofeng-resume/tests/deployment.test.mjs
+xiaofeng-resume/tests/preflight.test.mjs

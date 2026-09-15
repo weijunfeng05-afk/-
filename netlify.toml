@@ -1,13 +1,12 @@
 [build]
-  base = "frontend"
-  command = "node scripts/validate-cloud.mjs && pnpm build"
-  publish = "dist"
+  base = "xiaofeng-resume"
+  command = "pnpm run build"
+  publish = ".next"
 
 [build.environment]
   NODE_VERSION = "22"
-  PNPM_VERSION = "11.0.0"
 
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+  external_node_modules = ["unpdf", "mammoth"]

@@ -1,106 +1,28 @@
-# 简历筛选助手
+# 小锋牌简历 V1.1 Beta
 
-第一版 MVP，单人本机使用。React + TypeScript + Vite 提供界面，FastAPI 处理文件和模型调用，SQLite 保存岗位、任务及匹配结果。
+当前应用：`xiaofeng-resume/`，技术栈为 Next.js + Netlify + Supabase。
+根目录 `netlify.toml` 已指向此目录，不再部署旧前端静态站点。
 
-## 第一版功能
+## 本地运行与部署准备
 
-- 模板化 JD：先选内置模板，将原文要求映射到五个固定维度并核对；不自动创造权重。空维度仍沿用模板标准。
-- 历史分析：详情中可切换同一岗位的历史分析，查看已保存的结构化信息、原文和原文件。原文件和分析数据在 `data/` 中持久化。
-- 云部署准备：见 [Netlify 与 Render 部署](docs/Netlify与Render部署.md)。云端增加工作空间访问密钥验证，使用持久化磁盘；部署前需连接账号并核对费用。
+在 `xiaofeng-resume` 中执行：
 
-- 岗位管理：粘贴或上传 PDF / DOCX JD，提取、编辑、确认岗位要求，设置硬性条件和加分项。
-- 专用评分：迁移旧版 ToC 商业化产品运营、内部提效 AI 产品经理的五维标准（30/25/20/15/10）；可在岗位编辑中选择，详情展示个人贡献、AI 实践深度和面试核验建议。
-- 删除岗位：岗位卡片中确认删除，清除该岗位任务和结果，保留简历原文件及其他岗位数据。
-- 批量简历：一次最多 20 份，每份最多 10 MB；DOCX 支持段落和表格，PDF 保留页码；不支持扫描件 OCR。
-- 匹配分析：数据库持久化队列，逐份执行，重复请求去重，失败重试，中断恢复。
-- 结果核对：维度评分、硬性条件状态、排序筛选、原文引用、原文件下载和删除。
-- 版本管理：岗位要求或模型配置变化后，历史结果标记需要重新分析。
-- 模型配置：兼容 `/chat/completions` 的模型接口；API Key 在服务端加密保存，页面只返回掩码。
-
-## 在 Windows 启动
-
-需要 Python 3.12、Node.js 22 或以上以及 pnpm 11。脚本也支持自动使用当前用户已安装的 Codex 依赖运行时。
-
-在项目目录打开 PowerShell，首次执行：
-
-```powershell
-.\scripts\setup.ps1
-.\scripts\start.ps1
-```
-
-如果 PowerShell 的本机策略阻止脚本，可在确认脚本内容后直接运行 Python 入口：
-
-```powershell
-.\.venv\Scripts\python.exe scripts/run.py
-```
-
-打开 [本机应用](http://127.0.0.1:8000)。首次启动自动生成 `.env` 中的加密主密钥。服务仅监听 `127.0.0.1`，同一进程管理 API 和一个后台执行器，按 Ctrl+C 停止。
-
-1. 进入“模型配置”，填写 Base URL、API Key 和服务商提供的模型名称，保存并测试连接。
-2. 创建岗位，粘贴或上传 JD，提取要求，核对后点击“确认并保存”。也可手动填写要求。
-3. 在工作台上传简历，点击“开始匹配”。查看详情中的评分、条件判断和原文证据。
-
-Base URL 示例为 `https://服务地址/v1`，不要包含 `/chat/completions`。远程模型须使用 HTTPS；本机模型允许 HTTP。需要模型支持 JSON 对象输出及本项目的字段契约。
-
-## 验证
-
-```powershell
-.\scripts\verify.ps1
-```
-
-脚本运行后端及方案文档回归测试、前端组件测试、TypeScript 检查和生产构建。也可分别运行：
-
-```powershell
-.\.venv\Scripts\python.exe -m pytest tests -q
-cd frontend
+```sh
+pnpm install --frozen-lockfile
+node scripts/deployment-env.mjs --init
 pnpm test
 pnpm build
 ```
 
-自动化测试使用固定模型响应和模拟 HTTP 服务，覆盖 60/80 分边界、权重归一化、信息不足、硬性条件否决、伪造引用、文件异常、任务去重、重试、租约恢复、删除竞态及配置加密。**真实模型验收仍待填写有效 API 配置后进行，自动化结果不代表已完成真实模型效果验收。**
+根目录 `.env.local` 是部署凭据入口，已被 Git 忽略。应用目录 `.env.local` 也被忽略，空模板不会覆盖已有配置。
+配置脚本仅报告缺少的变量名，不打印任何密钥；发现根目录和应用目录配置冲突会拒绝继续。
+只读云端检查：`node scripts/cloud-preflight.mjs`。缺少凭据时明确返回未就绪，不会声称已部署。
 
-## 开发
+数据库迁移、后台任务、Auth、Storage、云端测试要求见 [部署说明](xiaofeng-resume/docs/NETLIFY-SUPABASE.md)。
 
-### GitHub 登录时提示找不到 git
+## 旧代码备份
 
-如果普通 PowerShell 提示 `git: CommandNotFoundException`，但 Codex 可以使用 Git，说明 Git 没有加入用户 PATH。在项目目录运行：
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\github-login.ps1 -RepairPath -CheckOnly
-```
-
-脚本会检查现有 Git 和 Git Credential Manager，并将找到的 Git 目录追加到用户 PATH，保留原有条目。关闭并重新打开 PowerShell 后，运行 `git --version` 验证。也可以直接运行下面的脚本登录，不依赖当前终端的 PATH：
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\github-login.ps1
-```
-
-在浏览器中完成 Git Credential Manager 授权。仅登录 GitHub 网页不等于完成本机 Git 授权，不需要将密码或 Token 发到聊天中。
-
-后端可直接执行 `scripts/run.py`。前端在 `frontend` 中运行 `pnpm dev`，Vite 将 `/api` 转发到本机 8000 端口。修改后端后需要重启服务；生产页面修改后需要 `pnpm build`。
-
-依赖版本通过 `requirements.lock` 和 `frontend/pnpm-lock.yaml` 固定。
-
-## 文件结构
-
-| 目录 / 文件 | 内容 |
-| --- | --- |
-| `backend/` | 接口、SQLite、文件解析、模型适配、评分和后台执行器 |
-| `frontend/` | 三个操作页面、交互、样式及组件测试 |
-| `tests/` | 评分、解析、模型接口、任务集成和方案文档回归测试 |
-| `scripts/` | 安装、启动及完整验证脚本 |
-| `docs/` | 产品方案、技术方案及文档模板回归基线 |
-| `tools/` | 原方案文档的生成与渲染验证工具 |
-| `Agents.md` | 每次改动须更新测试并创建 Git commit 的项目约定 |
-
-方案文档生成工具需要原始 System Design 模板，可通过 `MVP_TEMPLATE_PATH` 指定其路径；模板回归测试使用仓库内的哈希与几何基线，不依赖作者电脑上的模板路径。Word 渲染检查工具需要 Windows Word，并仅用于文档 QA。
-
-## 数据与限制
-
-评分规则、历史结果兼容方式和删除范围详见 [评分标准迁移说明](docs/评分标准迁移说明.md)。原 V1.0 Word 文档保留为初版设计记录，本次规则变更以迁移说明和当前实现为准。
-
-- `.env`、`data/`、依赖目录、构建产物、日志、缓存和 `.qa/` 不提交 GitHub。源码、方案文档、测试、启动脚本和依赖锁文件可在新电脑重建应用。
-- `data/app.sqlite3` 保存业务记录与加密后的 API Key；`data/files/` 保存原文件。备份时先停止应用，同时备份数据库和文件，单独妥善保管 `.env`。丢失主密钥后需重新保存 API Key。
-- 原文上限为 60,000 字符，结构化模型输入上限为 110,000 字符，超出时明确报错，不静默截断。
-- 评分只表示岗位相关程度，不代表录用概率。引用校验确认摘录存在，语义判断仍需人工核对。
-- 首版没有账号权限、OCR、跨岗位自动推荐或自动联系候选人能力，不应直接开放到公网。
+2026-09-15 迁移前的旧实现源文件已备份到 `.qa/deployment-backup/pre-cloud-cleanup-b543389.zip`。
+旧工作目录（包括开发依赖）移到 `.qa/deployment-backup/legacy-working-tree/`，不参与新部署。
+原有 `data/`、`.env` 和 `.venv/` 保留，未删除本地数据或原有加密密钥。
+`.qa` 备份目录被 Git 忽略，请单独保管。此操作未更改任何线上项目。

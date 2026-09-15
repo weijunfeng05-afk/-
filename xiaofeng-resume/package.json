@@ -9,12 +9,14 @@
     "dev:netlify": "next dev",
     "build:netlify": "next build --webpack",
     "start:netlify": "next start",
-    "dev": "next dev",
+    "dev": "node scripts/next-local.mjs dev",
     "build": "next build --webpack",
-    "start": "next start",
+    "start": "node scripts/next-local.mjs start",
     "test": "node --test tests/*.test.mjs",
     "lint": "eslint . --ignore-pattern .next --ignore-pattern work",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "deploy:check": "node scripts/cloud-preflight.mjs",
+    "env:init": "node scripts/deployment-env.mjs --init"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

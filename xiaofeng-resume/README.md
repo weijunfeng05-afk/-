@@ -2,7 +2,7 @@
 
 技术栈：Next.js 16 + Netlify Functions + Supabase Auth / PostgreSQL / 私有 Storage。
 本目录是独立应用根目录，来自用户指定的 `xiaofeng-resume-supabase-latest-source.zip`。
-外层目录中的旧项目保持原样；部署时请使用本目录或交付的独立源码 ZIP。
+外层旧实现已备份到 `.qa/deployment-backup`，根目录部署配置已指向本应用。部署时请使用本目录或根目录的 Netlify 配置。
 
 ## 开始
 
