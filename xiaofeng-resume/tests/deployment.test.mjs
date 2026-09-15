@@ -3,7 +3,14 @@ import assert from 'node:assert/strict';
 import {mkdtempSync,writeFileSync,readFileSync,rmSync,existsSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
+import {execFileSync} from 'node:child_process';
 import {initializeLocal,collectEnv,readiness,allowedKeys} from '../scripts/deployment-env.mjs';
+test('cloud login metadata and local credentials cannot be staged accidentally',()=>{
+ const root=existsSync('../netlify.toml')?'..':'.';
+ const files=['.env.local','.netlify/state.json','supabase/.temp/linked-project.json','xiaofeng-resume/supabase/.temp/pooler-url'];
+ const ignored=execFileSync('git',['check-ignore','--stdin'],{cwd:root,input:files.join('\n'),encoding:'utf8'}).trim().split(/\r?\n/);
+ assert.deepEqual(ignored,files);
+});
 test('env initialization never replaces an existing secret file',()=>{
  const root=mkdtempSync(join(tmpdir(),'resume-env-'));try{const path=join(root,'.env.local');writeFileSync(path,'DEEPSEEK_API_KEY=synthetic-existing\n');assert.equal(initializeLocal(path,'DEEPSEEK_API_KEY=\n'),false);assert.match(readFileSync(path,'utf8'),/synthetic-existing/)}finally{rmSync(root,{recursive:true})}
 });

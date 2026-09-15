@@ -12,3 +12,9 @@ data/
 .pytest_cache/
 *.log
 *.tsbuildinfo
+
+# Local Netlify folder
+.netlify
+
+# Supabase CLI local project metadata
+**/supabase/.temp/
