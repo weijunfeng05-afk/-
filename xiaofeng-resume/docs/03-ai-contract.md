@@ -1,6 +1,6 @@
 # V1.1 AI 合同
 
-执行源：lib/ai/prompts.ts 和 lib/ai/schema.ts。模型仍为 deepseek-v4-pro（岗位）与 deepseek-v4-flash（简历）；平台 Key 默认使用，BYOK 可覆盖。
+执行源：lib/ai/prompts.ts 和 lib/ai/schema.ts。模型仍为 deepseek-v4-pro（岗位）与 deepseek-flash（简历）；平台 Key 默认使用，BYOK 可覆盖。
 
 Prompt 版本 `resume-analysis-v1.1` 与实际模型、评分卡版本一同入库。
 每个后台任务至多调用模型一次，超时 90 秒；暂时失败由任务层最多自动重试 2 次，绝不在上传请求里等待 AI。

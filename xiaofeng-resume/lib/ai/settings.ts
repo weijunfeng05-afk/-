@@ -1,11 +1,13 @@
 import { z } from 'zod';
 import { AppError, db, runtime } from '@/lib/db';
 
-export const MODELS = ['deepseek-v4-pro', 'deepseek-v4-flash'] as const;
+export const MODELS = ['deepseek-v4-pro', 'deepseek-flash'] as const;
+const normalizeModel = (model: string) => model === 'deepseek-v4-flash' ? MODELS[1] : model;
+const modelInput = z.preprocess(value => value === 'deepseek-v4-flash' ? MODELS[1] : value, z.enum(MODELS));
 export const settingsInput = z.object({
   api_key: z.string().trim().max(512).refine(v => !v || /^[\x21-\x7e]{16,512}$/.test(v), '密钥格式不正确，请粘贴完整密钥').optional(),
-  job_model: z.enum(MODELS),
-  resume_model: z.enum(MODELS),
+  job_model: modelInput,
+  resume_model: modelInput,
   version: z.number().int().nonnegative(),
 }).strict();
 export type SettingsInput = z.infer<typeof settingsInput>;
@@ -56,7 +58,7 @@ export async function getSettingsStatus(owner: string) {
   return {
     configured: !!r?.encrypted_key || !!runtime().DEEPSEEK_API_KEY,
     masked_key: r?.key_suffix ? '•••• •••• ' + r.key_suffix : null,
-    job_model: r?.job_model || MODELS[0], resume_model: r?.resume_model || MODELS[1],
+    job_model: normalizeModel(r?.job_model || MODELS[0]), resume_model: normalizeModel(r?.resume_model || MODELS[1]),
     version: r?.version || 0, updated_at: r?.updated || null,
     provider: 'DeepSeek', endpoint: 'https://api.deepseek.com',
   };
@@ -64,7 +66,7 @@ export async function getSettingsStatus(owner: string) {
 export async function getAiConfiguration(owner: string) {
   const r = await readRow(owner);
   if (!r?.encrypted_key) {if(runtime().DEEPSEEK_API_KEY)return {apiKey:runtime().DEEPSEEK_API_KEY!,jobModel:MODELS[0],resumeModel:MODELS[1]};throw new AppError('平台 AI 服务尚未配置，请联系管理员或使用自己的 API Key。',503);}
-  return { apiKey: await decryptApiKey(r.encrypted_key, owner), jobModel: r.job_model, resumeModel: r.resume_model };
+  return { apiKey: await decryptApiKey(r.encrypted_key, owner), jobModel: normalizeModel(r.job_model), resumeModel: normalizeModel(r.resume_model) };
 }
 async function draftConfiguration(owner: string, input: SettingsInput) {
   const current = await readRow(owner);

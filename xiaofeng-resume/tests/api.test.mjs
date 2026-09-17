@@ -43,3 +43,28 @@ test('修改JD暂停候选人领取，等待新评分卡生成和人工确认',a
  const c=(await d.query('select id from candidates')).rows[0];assert.equal((await asUser(tx=>tx.query('select * from claim_candidate($1,\'token\',$2)',[c.id,Date.now()]))).rows.length,0);
  assert.equal((await d.query('select generation_status from jobs')).rows[0].generation_status,'waiting');
 });
+test('Netlify 的正式 Origin 能测试密钥，跨站 Origin 被拒绝且旧 Flash 名称兼容',async()=>{
+ const oldSite=process.env.SITE_URL, oldFetch=globalThis.fetch, calls=[];
+ process.env.SITE_URL='https://product.example.test';
+ globalThis.fetch=async(url,options)=>{
+  assert.equal(url,'https://api.deepseek.com/chat/completions');
+  calls.push(JSON.parse(options.body).model);
+  return Response.json({choices:[{message:{content:'{"ok":true}'}}]});
+ };
+ const make=origin=>new Request('http://netlify-internal/api/settings/ai/test',{
+  method:'POST',headers:{'Content-Type':'application/json',origin},
+  body:JSON.stringify({api_key:'sk-synthetic-test-only-123456',job_model:'deepseek-v4-pro',resume_model:'deepseek-v4-flash',version:0})
+ });
+ try{
+  const ok=await POST(make('https://product.example.test'));
+  assert.equal(ok.status,200);
+  assert.deepEqual(calls.sort(),['deepseek-flash','deepseek-v4-pro']);
+  const blocked=await POST(make('https://evil.example.test'));
+  assert.equal(blocked.status,403);
+  assert.equal((await blocked.json()).error,'无效的请求来源');
+  assert.equal(calls.length,2);
+ }finally{
+  globalThis.fetch=oldFetch;
+  if(oldSite===undefined)delete process.env.SITE_URL;else process.env.SITE_URL=oldSite;
+ }
+});

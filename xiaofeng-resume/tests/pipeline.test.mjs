@@ -23,7 +23,7 @@ const row=async id=>(await d.query('select * from evaluations where candidate_id
 test('后台完整评分、版本、token日志与重复投递幂等',async()=>{
  await seed('success');let calls=0;globalThis.fetch=async()=>{calls++;return success(output())};
  await processCandidate('success',owner);await processCandidate('success',owner);
- assert.equal(calls,1);const r=await row('success');assert.equal(r.status,'completed');assert.equal(r.score,86);assert.equal(r.prompt_version,'resume-analysis-v1.1');assert.equal(r.model,'deepseek-v4-flash');assert.ok(r.analysis_completed_at);
+ assert.equal(calls,1);const r=await row('success');assert.equal(r.status,'completed');assert.equal(r.score,86);assert.equal(r.prompt_version,'resume-analysis-v1.1');assert.equal(r.model,'deepseek-flash');assert.ok(r.analysis_completed_at);
  const log=(await d.query("select * from ai_calls where subject='success'")).rows[0];assert.equal(log.input_tokens,100);assert.equal(log.output_tokens,50);
 });
 test('一次任务只调用一次AI，定时恢复最多自动重试2次',async()=>{

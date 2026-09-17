@@ -3,12 +3,13 @@ import mammoth from 'mammoth';
 import {AppError} from './db';
 export function checkFile(file:File){if(!/\.(pdf|docx)$/i.test(file.name))throw new AppError('仅支持 PDF 或 DOCX 文件');if(!file.size||file.size>10*1024*1024)throw new AppError('文件不能为空且不能超过 10 MB');}
 export async function parseDocument(bytes:ArrayBuffer,filename:string){
- const data=new Uint8Array(bytes);let text='';
+ // PDF.js may transfer its input buffer to a worker. Preserve the caller's original file for storage and downloads.
+ const data=new Uint8Array(bytes.slice(0));let text='';
  try{
   if(/\.pdf$/i.test(filename)){if(new TextDecoder().decode(data.slice(0,5))!=='%PDF-')throw Error('格式不匹配');const doc=await getDocumentProxy(data);try{if(doc.numPages>50)throw new AppError('文件超过 50 页，请拆分后上传');const result=await extractText(doc,{mergePages:true});text=result.text;}finally{await doc.loadingTask.destroy();}}
   else {checkZip(data);if(data[0]!==0x50||data[1]!==0x4b)throw Error('格式不匹配');text=(await mammoth.extractRawText({buffer:Buffer.from(data)})).value;}
  }catch(e){if(e instanceof AppError)throw e;throw new AppError('文件解析失败，请确认文件未加密、未损坏，且为 PDF 或 DOCX 格式');}
- text=text.replace(/\u0000/g,'').trim();if(text.length<30)throw new AppError('未提取到足够文字，扫描件请先 OCR 后重新上传');if(text.length>60000)throw new AppError('文件文字超过 60,000 字符，请精简后重新上传');return text;
+ text=text.replace(/\u0000/g,'').trim();if(text.length<30)throw new AppError('文件可提取文字不足 30 字，暂无法评分。若为扫描件或图片版 PDF，请先 OCR 或上传文字版 PDF / DOCX');if(text.length>60000)throw new AppError('文件文字超过 60,000 字符，请精简后重新上传');return text;
 }
 
 

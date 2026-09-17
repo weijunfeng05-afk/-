@@ -1,8 +1,18 @@
 [build]
   command = "pnpm run build"
   publish = ".next"
+
 [build.environment]
   NODE_VERSION = "22"
+  NETLIFY = "true"
+
+# Next.js 运行时插件：App Router、Route Handler、中间件（proxy.ts）都依赖它，
+# 缺少插件时 publish 出来的 .next 无法被 Netlify 正确接管。
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# 项目自带的 Netlify Functions：AI 后台任务与定时补偿任务。
+# Background Functions 最长运行 15 分钟，本实现的单次 AI 请求限时 90 秒。
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"

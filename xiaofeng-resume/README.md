@@ -1,8 +1,8 @@
-# 小锋牌简历 V1.1 Beta
+# 小锋牌简历筛选机 V1.1 Beta
 
 技术栈：Next.js 16 + Netlify Functions + Supabase Auth / PostgreSQL / 私有 Storage。
 本目录是独立应用根目录，来自用户指定的 `xiaofeng-resume-supabase-latest-source.zip`。
-外层旧实现已备份到 `.qa/deployment-backup`，根目录部署配置已指向本应用。部署时请使用本目录或根目录的 Netlify 配置。
+外层目录中的旧项目保持原样；部署时请使用本目录或交付的独立源码 ZIP。
 
 ## 开始
 
@@ -18,6 +18,19 @@ pnpm build
 
 复制 `.env.example` 为 `.env.local` 并填写自己的配置。不要提交真实密钥。
 生产部署顺序、迁移、邀请生成、回滚和验收见 [部署说明](docs/NETLIFY-SUPABASE.md)。
+**从零到线上内测的完整步骤见 [上线部署清单](docs/GO-LIVE.md)。**
+交给另一个 AI 执行部署时，用 [部署执行手册](docs/DEPLOY-HANDOFF.md)（含命令、接口与校验）。
+
+## 三种运行方式
+
+| 方式 | 环境变量 | 账号 | 数据 | 适用场景 |
+| --- | --- | --- | --- | --- |
+| 生产（推荐） | `NEXT_PUBLIC_AI_MODE` 留空 | Supabase Auth，可自助注册 | Supabase PostgreSQL + 私有 Storage，持久保存、按用户隔离 | 给同事用的正式内测 |
+| 本地真实 AI | `NEXT_PUBLIC_AI_MODE=real` | 邮箱 + 统一密码 | **内存，重启即清空** | 本机验证真实大模型效果 |
+| 本地演示 | `NEXT_PUBLIC_AI_MODE=demo` | 同上 | 内置模拟数据与模拟评分 | 仅看界面 |
+
+> `real` / `demo` 模式下数据不落盘，重启 `next dev` 或改动 `next.config.ts` 都会清空，
+> 不要用于任何真实数据。两种本地模式都不需要 Supabase。
 
 ## 已实现
 

@@ -1,6 +1,9 @@
+import {isAllowedRequestOrigin} from '@/lib/request-origin';
 import {ensureLegacyOwnerSettings,getSettingsStatus,saveConfiguration,testConfiguration,removeConfiguration} from '@/lib/ai/settings';
 import {supabaseServer} from '@/lib/supabase/server';
-import {db,json,AppError,withUserRuntime} from '@/lib/db';
+import {db,json,AppError,withUserRuntime,runtime} from '@/lib/db';
+import {demoEnabled,demoRequest} from '@/lib/demo';
+import {localAiEnabled,localAiRequest} from '@/lib/local-ai';
 import {jobInput,cardSchema} from '@/lib/ai/schema';
 import {checkFile,parseDocument} from '@/lib/documents';
 import {dispatchSafely} from '@/lib/background';
@@ -11,7 +14,7 @@ export const dynamic='force-dynamic';
 async function business(req:Request,user:{userId:string;email:string}){
  try{
   const owner=user.userId;
-  if(req.method!=='GET'){const origin=req.headers.get('origin');if(origin&&origin!==new URL(req.url).origin)return json({error:'无效的请求来源'},403);}
+  if(!isAllowedRequestOrigin(req))return json({error:'无效的请求来源'},403);
   const parts=new URL(req.url).pathname.slice(5).split('/');const [kind,id,action]=parts,d=db();
   const ownedJob=async(jobId:string)=>{const j:any=await d.prepare('SELECT * FROM jobs WHERE id=? AND owner=?').bind(jobId,owner).first();if(!j)throw new AppError('岗位不存在',404);return j;};
   await ensureLegacyOwnerSettings(user);
@@ -36,6 +39,12 @@ async function business(req:Request,user:{userId:string;email:string}){
    return json({id:jobId},201);
   }
   if(kind==='jobs'&&id){const job=await ownedJob(id);
+   if(req.method==='DELETE'&&!action){
+    const files=await d.prepare('SELECT file_key FROM candidates WHERE job_id=?').bind(id).all();
+    await d.batch([d.prepare('DELETE FROM evaluations WHERE candidate_id IN (SELECT id FROM candidates WHERE job_id=?)').bind(id),d.prepare('DELETE FROM candidates WHERE job_id=?').bind(id),d.prepare('DELETE FROM scorecards WHERE job_id=?').bind(id),d.prepare('DELETE FROM ranking_reviews WHERE job_id=?').bind(id),d.prepare('DELETE FROM jobs WHERE id=? AND owner=?').bind(id,owner)]);
+    for(const row of files.results as unknown as {file_key:string}[]){try{await runtime().BUCKET.delete(row.file_key)}catch{/* 忽略单个原文件清理失败 */}}
+    return json({ok:true});
+   }
    if(req.method==='PUT'&&!action){const body=await req.json();const input=jobInput.parse(body);if(!Number.isInteger(body.version))throw new AppError('缺少岗位版本');await d.prepare('SELECT revise_job(?,?,?,?,?)').bind(id,body.version,JSON.stringify(input),body.reanalyze===true,Date.now()).run();await dispatchSafely(id,'job');return json({ok:true},202);}
    if(action==='metrics'&&req.method==='GET')return json(await jobMetrics(id));
    if(action==='ranking'&&req.method==='POST'){const body=await req.json();return json(await saveRanking(id,body.version,body.candidateIds));}
@@ -64,6 +73,11 @@ async function business(req:Request,user:{userId:string;email:string}){
   if(kind==='usage'&&req.method==='GET')return json(await d.prepare('SELECT * FROM beta_usage WHERE owner=?').bind(owner).first());
 
   if(kind==='candidates'&&id){const c:any=await d.prepare('SELECT c.*,e.status,e.score,e.version,e.result,e.error,e.scorecard_id,e.retry_count,e.error_code,e.analysis_started_at,e.analysis_completed_at,e.model,e.prompt_version,e.updated FROM candidates c JOIN jobs j ON j.id=c.job_id JOIN evaluations e ON e.candidate_id=c.id WHERE c.id=? AND j.owner=?').bind(id,owner).first();if(!c)throw new AppError('候选人不存在',404);
+   if(req.method==='DELETE'&&!action){
+    await d.batch([d.prepare('DELETE FROM evaluations WHERE candidate_id=?').bind(id),d.prepare('DELETE FROM candidates WHERE id=?').bind(id)]);
+    if(c.file_key){try{await runtime().BUCKET.delete(c.file_key)}catch{/* 原文件清理失败不影响数据删除 */}}
+    return json({ok:true});
+   }
    if(action==='retry'&&req.method==='POST'){await d.prepare("UPDATE evaluations SET status='waiting',retry_count=retry_count+1,error=NULL,error_code=NULL,score=NULL,result=NULL,lease=NULL,updated=? WHERE candidate_id=? AND status='failed'").bind(Date.now(),id).run();await dispatchSafely(id);return json({ok:true},202);}
    if(action==='file'&&req.method==='GET'){const client=await supabaseServer();const {data,error}=await client.storage.from('resumes').createSignedUrl(c.file_key,60);if(error)throw new AppError('文件暂时不可用',503);return Response.redirect(data.signedUrl,302);}
    if(req.method==='GET'&&!action){const card:any=await d.prepare('SELECT data FROM scorecards WHERE id=?').bind(c.scorecard_id).first();return json({...c,file_key:undefined,result:c.result?JSON.parse(c.result):null,profile:c.profile?JSON.parse(c.profile):null,scorecard:card?JSON.parse(card.data):null});}
@@ -72,6 +86,10 @@ async function business(req:Request,user:{userId:string;email:string}){
  }catch(e){if(e instanceof ZodError)return json({error:e.issues.map(x=>x.message).join('；')},400);if(e instanceof Error&&/内测额度|评分卡已|请先确认/.test(e.message))return json({error:e.message},409);if(e instanceof AppError)return json({error:e.message},e.status);console.error('API request failed',e instanceof Error?e.name:'unknown');return json({error:'服务暂时不可用，请稍后重试；已保存的数据不会丢失。'},503);}
 }
 async function handler(req:Request){
+  // 本地真实 AI 模式：真实调用 DeepSeek，数据保存在内存，不连接 Supabase / 数据库。
+  if(localAiEnabled())return localAiRequest(req);
+  // 本地演示模式：返回内置示例数据，不连接 Supabase 与数据库。
+  if(demoEnabled())return demoRequest(req);
  try{
   const client=await supabaseServer();
   const {data:{user},error}=await client.auth.getUser();

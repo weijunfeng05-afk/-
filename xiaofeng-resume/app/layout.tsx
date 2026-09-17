@@ -3,7 +3,7 @@ import "./globals.css";
 import Account from '@/components/account';
 
 export const metadata: Metadata = {
-  title: "小锋牌简历 · 招聘工作台",
+  title: "小锋牌简历筛选机 · 招聘工作台",
   description: "证据驱动的简历初筛与候选人排序。",
   other: {
     "codex-preview": "development",
